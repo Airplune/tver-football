@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Турнирная Таблица — «Кубок Игоря Семшова»</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #000000;
+            --border-color: #cbd5e1;
+            --accent-color: #2563eb;
+            --self-cell: #e2e8f0;
+        }
+
+        *, *:before, *:after { 
+            box-sizing: border-box; 
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container { 
+            width: 100%; 
+            max-width: 100%; 
+            margin: 0 auto;
+            padding-bottom: 60px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 1. БЛОК ЛОГОТИПА */
+        .logo-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .header-logo {
+            max-height: 180px;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* 2. ИНФОРМАЦИЯ О ТУРНИРЕ И РЕДАКТОР */
+        .top-bar {
+            background: var(--card-bg);
+            padding: 16px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+            text-align: center;
+            width: 100%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        /* ПАНЕЛЬ ИНСТРУМЕНТОВ РЕДАКТИРОВАНИЯ ТЕКСТА */
+        .text-editor-toolbar {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+            padding: 6px 10px;
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            flex-wrap: wrap;
+        }
+
+        body.is-admin .text-editor-toolbar {
+            display: flex;
+        }
+
+        .toolbar-btn {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 4px 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 28px;
+        }
+
+        .toolbar-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .toolbar-select {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #1e293b;
+            outline: none;
+            height: 28px;
+        }
+
+        .toolbar-color {
+            width: 28px;
+            height: 28px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0;
+            background: transparent;
+        }
+
+        .header-title-block {
+            width: 100%;
+        }
+
+        /* Единый редактируемый блок текстовой шапки */
+        .header-editable {
+            outline: none;
+            text-align: center;
+            color: #000000;
+            width: 100%;
+            min-height: 80px;
+            font-family: inherit;
+            display: block;
+            border: 1px transparent solid;
+            transition: border-color 0.2s;
+            line-height: 1.4;
+            white-space: pre-wrap;
+        }
+
+        body.is-admin .header-editable {
+            border: 1px dashed var(--border-color);
+            background: #fff;
+            border-radius: 6px;
+            padding: 8px;
+            cursor: text;
+        }
+
+        body.is-admin .header-editable:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+        }
+
+        /* КАРТОЧКИ ГРУПП И ФИНАЛА */
+        .group-card, .final-stage-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .group-header, .final-stage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .group-title, .final-stage-title-input { 
+            font-size: 22px; 
+            font-weight: 800; 
+            text-align: left;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: #000000;
+            width: 70%;
+            font-family: inherit;
+        }
+
+        body.is-admin .group-title, body.is-admin .final-stage-title-input {
+            border: 1px dashed var(--border-color);
+            background: #fff;
+            border-radius: 4px;
+            padding: 2px 6px;
+        }
+
+        .table-responsive { 
+            width: 100%; 
+            overflow: hidden; 
+        }
+
+        table { 
+            border-collapse: collapse; 
+            width: 100%; 
+            text-align: center; 
+            font-size: 16px; 
+            table-layout: fixed; 
+        }
+
+        th, td { 
+            border: 1px solid var(--border-color); 
+            padding: 4px 1px; 
+            vertical-align: middle;
+            overflow: hidden;
+        }
+
+        th { background: #f8fafc; color: #334155; font-weight: 700; font-size: 16px; }
+
+        .team-cell { text-align: left; padding: 4px; }
+        .team-wrap { display: flex; justify-content: space-between; align-items: center; gap: 4px; width: 100%; }
+        
+        .team-inputs-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            gap: 2px;
+        }
+
+        .team-name-input { 
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: left; 
+            font-weight: 800; 
+            width: 100%;
+            font-size: 16px; 
+            color: #000000; 
+            font-family: inherit;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .team-city-input { 
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: left; 
+            font-weight: 500; 
+            width: 100%;
+            font-size: 14px; 
+            color: #000000; 
+            font-family: inherit;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .self-cell { background: var(--self-cell); font-size: 16px; color: #64748b; }
+
+        .matches-container { display: flex; flex-direction: column; gap: 1px; align-items: center; justify-content: center; width: 100%; }
+        .score-row { display: flex; align-items: center; gap: 1px; justify-content: center; width: 100%; }
+        
+        .score-input {
+            width: 38px;
+            height: 32px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-weight: 800;
+            font-size: 16px;
+            outline: none;
+            color: #000;
+            background: #fff;
+            padding: 0 1px;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+
+        .btn-mini { 
+            background: none; 
+            border: none; 
+            color: #ef4444; 
+            cursor: pointer; 
+            font-size: 16px; 
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+
+        .btn-add {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .points-col { background: #eff6ff; font-weight: 800; color: var(--accent-color); font-size: 18px; }
+
+        .bottom-controls {
+            position: fixed;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 6px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            border: 1px solid var(--border-color);
+        }
+
+        .admin-controls { display: none; gap: 8px; }
+        body.is-admin .admin-controls { display: flex; }
+
+        .icon-btn {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            width: 42px;
+            height: 42px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #1e293b;
+        }
+
+        .final-stage-container {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            width: 100%;
+        }
+
+        .final-match-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border-color);
+            gap: 8px;
+            width: 100%;
+        }
+        .final-match-row:last-child { border-bottom: none; }
+        
+        .match-label-input { 
+            font-weight: 700; 
+            color: #000; 
+            font-size: 16px;
+            text-align: left;
+            width: 22%;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-family: inherit;
+        }
+        body.is-admin .match-label-input {
+            border: 1px dashed var(--border-color);
+            background: #fff;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        
+        .team-select {
+            width: 32%;
+            min-width: 0;
+            padding: 2px 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            outline: none;
+            font-weight: 700;
+            background: #ffffff;
+            color: #000000;
+            height: 34px;
+            font-size: 15px;
+            font-family: inherit;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .final-match-row .score-row {
+            width: auto;
+            flex-shrink: 0;
+            gap: 2px;
+        }
+
+        /* TV MODE */
+        body.tv-mode { 
+            padding: 0.2vh 0.4vw; 
+            background: var(--bg-color); 
+            overflow-y: auto;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
+        }
+
+        body.tv-mode .admin-only, 
+        body.tv-mode .admin-controls,
+        body.tv-mode .btn-mini, 
+        body.tv-mode .btn-add,
+        body.tv-mode .bottom-controls,
+        body.tv-mode .text-editor-toolbar,
+        body.tv-mode #led-match-banner,
+        body.tv-mode #led-standalone-table { display: none !important; }
+
+        body.tv-mode .container { 
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 100vh;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body.tv-mode .logo-card { padding: 0.2vh; margin-bottom: 0.2vh; flex-shrink: 0; }
+        body.tv-mode .header-logo { max-height: clamp(30px, 6vh, 80px); }
+        body.tv-mode .top-bar { padding: 0.2vh 0; margin-bottom: 0.3vh; flex-shrink: 0; }
+
+        body.tv-mode #groups-wrapper { display: flex; flex-direction: column; gap: 0.2vh; flex: 1; }
+        body.tv-mode .group-card, body.tv-mode .final-stage-card { 
+            padding: 0.3vh 0.5vw; 
+            margin-bottom: 0.2vh; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+        }
+        body.tv-mode .group-title, body.tv-mode .final-stage-title-input { font-size: clamp(13px, 1.5vh, 20px); margin-bottom: 0.2vh; border: none !important; background: transparent !important; }
+        body.tv-mode table { font-size: clamp(10px, 1.2vh, 16px); }
+        body.tv-mode th, body.tv-mode td { padding: 0.1vh 0px; }
+        body.tv-mode .team-name-input { font-size: clamp(10px, 1.2vh, 16px); }
+        body.tv-mode .team-city-input { font-size: clamp(9px, 1vh, 13px); }
+        body.tv-mode .score-input { width: 48%; max-width: 38px; min-width: 20px; height: clamp(18px, 2vh, 28px); font-size: clamp(10px, 1.3vh, 16px); padding: 0; }
+        body.tv-mode .score-row { gap: 1px; }
+        body.tv-mode .match-label-input { font-size: clamp(10px, 1.2vh, 16px); border: none !important; background: transparent !important; }
+        body.tv-mode .team-select { height: clamp(18px, 2vh, 28px); font-size: clamp(10px, 1.2vh, 16px); padding: 0 2px; }
+        body.tv-mode .final-match-row { padding: 0.1vh 0; }
+
+        /* LED MODE */
+        #led-match-banner, #led-standalone-table { display: none; }
+
+        body.led-mode { padding: 0; margin: 0; background: #ffffff; overflow: hidden; width: 100vw; height: 100vh; }
+        body.led-mode .logo-card, body.led-mode .top-bar, body.led-mode .bottom-controls, body.led-mode #groups-wrapper, body.led-mode #final-stage-wrapper, body.led-mode .admin-only, body.led-mode .btn-mini, body.led-mode .btn-add { display: none !important; }
+
+        body.led-mode .container { width: 100vw !important; height: 100vh !important; max-width: 100% !important; padding: 10px; display: flex; flex-direction: column; justify-content: flex-start; gap: 10px; }
+
+        body.led-mode #led-match-banner {
+            display: flex !important;
+            width: 100%;
+            height: 24vh;
+            background: #ffffff;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 6px 16px;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .led-select {
+            flex: 1;
+            font-size: clamp(20px, 3.5vh, 36px);
+            font-weight: 900;
+            text-align: center;
+            color: #000;
+            text-transform: uppercase;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            outline: none;
+            background: #fff;
+            padding: 4px;
+            width: 32%;
+            height: 60px;
+            font-family: inherit;
+        }
+
+        .led-score-input {
+            font-size: clamp(45px, 8vh, 90px);
+            font-weight: 900;
+            width: 80px;
+            text-align: center;
+            color: #000000;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-family: inherit;
+        }
+
+        .led-center-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 220px;
+            height: 100%;
+            gap: 2px;
+        }
+
+        .led-center-logo { max-height: 7vh; max-width: 100%; object-fit: contain; }
+
+        .led-timer-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            padding: 2px 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .timer-input {
+            width: 45px;
+            font-size: clamp(20px, 3.2vh, 36px);
+            font-weight: 900;
+            font-family: monospace;
+            color: #2563eb;
+            background: transparent;
+            border: none;
+            outline: none;
+            text-align: center;
+        }
+
+        .timer-separator {
+            font-size: clamp(20px, 3.2vh, 36px);
+            font-weight: 900;
+            font-family: monospace;
+            color: #2563eb;
+        }
+
+        .timer-btn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 2px;
+            font-weight: bold;
+        }
+
+        body.led-mode #led-standalone-table {
+            display: flex !important;
+            flex-direction: column;
+            flex: 1;
+            width: 100%;
+            background: #ffffff;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .led-table-title { font-size: clamp(22px, 3.5vh, 36px); font-weight: 900; text-align: center; margin-bottom: 8px; text-transform: uppercase; }
+
+        body.led-mode .led-table { width: 100%; border-collapse: collapse; height: 100%; }
+        body.led-mode .led-table th { border: 2px solid var(--border-color); padding: 6px; text-align: center; font-size: clamp(18px, 2.8vh, 30px); font-weight: 800; background: #f1f5f9; }
+        body.led-mode .led-table td { border: 2px solid var(--border-color); padding: 6px; text-align: center; font-size: clamp(22px, 3.6vh, 40px); font-weight: 800; }
+
+        .led-cell-input, .led-table-select {
+            width: 100%;
+            height: 100%;
+            border: none;
+            outline: none;
+            background: transparent;
+            text-align: center;
+            font-size: clamp(18px, 3vh, 32px);
+            font-weight: 800;
+            color: inherit;
+            font-family: inherit;
+        }
+
+        .led-table-select {
+            text-align: left;
+            padding-left: 6px;
+        }
+
+        .admin-only { display: none; }
+        body.is-admin .admin-only { display: inline-flex; }
+
+        .score-input:disabled, .team-name-input:disabled, .team-city-input:disabled, .group-title:disabled, .team-select:disabled, .led-select:disabled, .led-score-input:disabled, .led-cell-input:disabled, .led-table-select:disabled, .timer-input:disabled, .final-stage-title-input:disabled, .match-label-input:disabled {
+            opacity: 1;
+            -webkit-text-fill-color: inherit;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- БЛОК МАТЧА ДЛЯ БОЛЬШОГО ЭКРАНА -->
+        <div id="led-match-banner">
+            <select id="led-t1-select" class="led-select" onchange="updateLedHeader()" disabled></select>
+            <input type="text" id="led-s1-inp" class="led-score-input" value="0" onchange="updateLedHeader()" disabled>
+            
+            <div class="led-center-box">
+                <img src="logo.png" class="led-center-logo" alt="Лого">
+                <div class="led-timer-container">
+                    <input type="text" id="timer-m" class="timer-input" value="00" onchange="onTimerInputChange()" maxlength="2" disabled>
+                    <span class="timer-separator">:</span>
+                    <input type="text" id="timer-s" class="timer-input" value="00" onchange="onTimerInputChange()" maxlength="2" disabled>
+                </div>
+                <div id="timer-controls" style="display:none; margin-top: 4px;">
+                    <button class="timer-btn" onclick="toggleTimer()">Старт/Пауза</button>
+                    <button class="timer-btn" onclick="resetTimer()">Сброс</button>
+                </div>
+            </div>
+
+            <input type="text" id="led-s2-inp" class="led-score-input" value="0" onchange="updateLedHeader()" disabled>
+            <select id="led-t2-select" class="led-select" onchange="updateLedHeader()" disabled></select>
+        </div>
+
+        <!-- ТАБЛИЦА БОЛЬШОГО ЭКРАНА -->
+        <div id="led-standalone-table">
+            <div class="led-table-title">ТУРНИРНАЯ ТАБЛИЦА</div>
+            <div style="flex: 1; width: 100%; overflow: hidden;">
+                <table class="led-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 6%;">№</th>
+                            <th style="width: 32%;">Команда</th>
+                            <th style="width: 9%;">1</th>
+                            <th style="width: 9%;">2</th>
+                            <th style="width: 9%;">3</th>
+                            <th style="width: 9%;">4</th>
+                            <th style="width: 9%;">Мячи</th>
+                            <th style="width: 9%;">Очки</th>
+                            <th style="width: 8%;">Место</th>
+                        </tr>
+                    </thead>
+                    <tbody id="led-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ЛОГОТИП И ИНФОРМАЦИЯ -->
+        <div class="logo-card">
+            <img src="logo.png" class="header-logo" alt="Логотип">
+        </div>
+
+        <div class="top-bar">
+            <!-- ПАНЕЛЬ ФОРМАТИРОВАНИЯ ТЕКСТА -->
+            <div class="text-editor-toolbar">
+                <button class="toolbar-btn" onclick="formatText('bold')" title="Жирный"><b>B</b></button>
+                <button class="toolbar-btn" onclick="formatText('italic')" title="Курсив"><i>I</i></button>
+                <button class="toolbar-btn" onclick="formatText('underline')" title="Подчёркнутый"><u>U</u></button>
+
+                <!-- Выбор размера шрифта -->
+                <select class="toolbar-select" onchange="formatFontSize(this.value); this.selectedIndex=0;" title="Размер шрифта">
+                    <option value="" disabled selected>Размер</option>
+                    <option value="12px">12px</option>
+                    <option value="14px">14px</option>
+                    <option value="16px">16px</option>
+                    <option value="18px">18px</option>
+                    <option value="20px">20px</option>
+                    <option value="24px">24px</option>
+                    <option value="28px">28px</option>
+                    <option value="32px">32px</option>
+                </select>
+
+                <input type="color" class="toolbar-color" onchange="formatColor(this.value)" title="Цвет текста">
+                <button class="toolbar-btn" onclick="formatText('removeFormat')" title="Очистить форматирование">🧹</button>
+            </div>
+
+            <!-- Единый редактируемый блок -->
+            <div class="header-title-block">
+                <div id="hdr-content" class="header-editable" onblur="updateHeaderInfo()"></div>
+            </div>
+        </div>
+
+        <div id="groups-wrapper" style="width: 100%;"></div>
+        <div id="final-stage-wrapper" style="width: 100%;"></div>
+    </div>
+
+    <!-- КНОПКИ УПРАВЛЕНИЯ -->
+    <div class="bottom-controls">
+        <div class="admin-controls">
+            <button class="icon-btn" onclick="addGroup()" title="Добавить группу">➕</button>
+            <button class="icon-btn" onclick="toggleFinalStage()" id="toggle-final-btn" title="Вкл/Выкл Финальный этап">🏆</button>
+            <button class="icon-btn" onclick="resetPage()" title="Сбросить">🔄</button>
+        </div>
+        <button class="icon-btn" id="led-btn" onclick="toggleLED(event)" title="Большой экран (LED 4:3)">🖥️</button>
+        <button class="icon-btn" id="tv-btn" onclick="toggleTV(event)" title="ТВ Режим (16:9)">📺</button>
+        <button class="icon-btn" id="auth-btn" onclick="toggleAdmin()" title="Авторизация">🔐</button>
+    </div>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyBMb4kADP7yRQx_WdaBS7UlhTv6fWYvMts",
+            authDomain: "footballtable-427cd.firebaseapp.com",
+            databaseURL: "https://footballtable-427cd-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "footballtable-427cd",
+            storageBucket: "footballtable-427cd.firebasestorage.app",
+            messagingSenderId: "124536699738",
+            appId: "1:124536699738:web:23bdb0749ccb5e43465163"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        var db = firebase.database();
+        var dbRef = db.ref('tournament_state');
+
+        var isAdmin = false;
+        var ADMIN_PASS = "admin123";
+
+        var defaultHeaderHtml = `<div style="font-size: 18px; font-weight: 600;">Турнир по футболу (дисциплина мини-футбол 7х7)</div>` +
+            `<div style="font-size: 22px; font-weight: 800;">«Кубок Игоря Семшова» среди мальчиков 2016 годов рождения.</div>` +
+            `<div style="font-size: 16px; font-weight: 600;">г.Тверь, 12.09.2026</div>` +
+            `<div style="font-size: 16px; font-weight: 600;">Спорткомплекс «Тверь Арена»</div>` +
+            `<div style="font-size: 19px; font-weight: 700; margin-top: 6px;">Турнирная таблица (Предварительный этап)</div>`;
+
+        var defaultState = {
+            header: defaultHeaderHtml,
+            groups: [
+                {
+                    name: "Группа «А»",
+                    teams: [
+                        { name: "«СШОР»-2", city: "Тверская область" },
+                        { name: "«ФА Кантера»", city: "Москва" },
+                        { name: "«Луч»", city: "Солнечногорск" },
+                        { name: "«Витязь»", city: "Дубна" }
+                    ],
+                    scores: {}
+                },
+                {
+                    name: "Группа «Б»",
+                    teams: [
+                        { name: "«СШОР»-1", city: "Тверская область" },
+                        { name: "«Химик Юниор»", city: "Клин" },
+                        { name: "«Витязь»", city: "Ногинск" },
+                        { name: "«ДФК Спартак»", city: "Дубна" }
+                    ],
+                    scores: {}
+                }
+            ],
+            showFinalStage: true,
+            finalStageTitle: "Финальный этап",
+            finalStage: [
+                { stage: "½ финала", t1: "", t2: "", h: "", a: "" },
+                { stage: "½ финала", t1: "", t2: "", h: "", a: "" },
+                { stage: "За 7-8 место", t1: "", t2: "", h: "", a: "" },
+                { stage: "За 5-6 место", t1: "", t2: "", h: "", a: "" },
+                { stage: "За 3-4 место", t1: "", t2: "", h: "", a: "" },
+                { stage: "За 1-2 место", t1: "", t2: "", h: "", a: "" }
+            ],
+            ledMatch: { t1: "", t2: "", s1: "0", s2: "0" },
+            ledTableData: [
+                { name: "", c1: "", c2: "", c3: "", c4: "", goals: "", pts: "", place: "" },
+                { name: "", c1: "", c2: "", c3: "", c4: "", goals: "", pts: "", place: "" },
+                { name: "", c1: "", c2: "", c3: "", c4: "", goals: "", pts: "", place: "" },
+                { name: "", c1: "", c2: "", c3: "", c4: "", goals: "", pts: "", place: "" }
+            ],
+            timerSeconds: 0,
+            timerRunning: false
+        };
+
+        var state = JSON.parse(JSON.stringify(defaultState));
+        var timerInterval = null;
+
+        function formatText(command) {
+            document.execCommand(command, false, null);
+        }
+
+        function formatColor(color) {
+            document.execCommand('foreColor', false, color);
+        }
+
+        function formatFontSize(size) {
+            var selection = window.getSelection();
+            if (!selection.rangeCount || selection.isCollapsed) return;
+            
+            var range = selection.getRangeAt(0);
+            var span = document.createElement("span");
+            span.style.fontSize = size;
+            
+            try {
+                range.surroundContents(span);
+            } catch (e) {
+                document.execCommand("fontSize", false, "3");
+            }
+        }
+
+        function parseTeam(t) {
+            if (!t) return { name: "", city: "" };
+            if (typeof t === 'string') {
+                return { name: t, city: "" };
+            }
+            return { name: t.name || "", city: t.city || "" };
+        }
+
+        function formatTeamName(t) {
+            var obj = parseTeam(t);
+            return obj.city ? (obj.name + " " + obj.city) : obj.name;
+        }
+
+        dbRef.on('value', function(snapshot) {
+            var data = snapshot.val();
+            if (data) {
+                state = data;
+                if (!state.header) state.header = defaultHeaderHtml;
+                if (!state.finalStage) state.finalStage = JSON.parse(JSON.stringify(defaultState.finalStage));
+                if (state.showFinalStage === undefined) state.showFinalStage = true;
+                if (!state.finalStageTitle) state.finalStageTitle = "Финальный этап";
+                if (!state.ledMatch) state.ledMatch = { t1: "", t2: "", s1: "0", s2: "0" };
+                if (!state.ledTableData) state.ledTableData = JSON.parse(JSON.stringify(defaultState.ledTableData));
+            } else {
+                state = JSON.parse(JSON.stringify(defaultState));
+                dbRef.set(state);
+            }
+            renderHeader();
+            render();
+            renderFinal();
+            renderLedHeader();
+            renderLedTable();
+            syncTimer();
+            updateFinalToggleButton();
+        });
+
+        function saveState() {
+            if (isAdmin) {
+                dbRef.set(state);
+            }
+        }
+
+        function toggleAdmin() {
+            if (isAdmin) {
+                isAdmin = false;
+                document.body.classList.remove('is-admin');
+                document.getElementById('auth-btn').innerHTML = "🔐";
+                document.getElementById('timer-controls').style.display = 'none';
+            } else {
+                var p = prompt("Пароль администратора:");
+                if (p === ADMIN_PASS) {
+                    isAdmin = true;
+                    document.body.classList.add('is-admin');
+                    document.getElementById('auth-btn').innerHTML = "🚪";
+                    document.getElementById('timer-controls').style.display = 'block';
+                    dbRef.set(state);
+                } else if (p !== null) {
+                    alert("Неверный пароль!");
+                }
+            }
+            renderHeader();
+            render();
+            renderFinal();
+            renderLedHeader();
+            renderLedTable();
+            updateFinalToggleButton();
+        }
+
+        function updateFinalToggleButton() {
+            var btn = document.getElementById('toggle-final-btn');
+            if (btn) {
+                btn.style.opacity = state.showFinalStage ? "1" : "0.4";
+                btn.title = state.showFinalStage ? "Финальный этап: ВКЛ (нажмите чтобы выключить)" : "Финальный этап: ВЫКЛ (нажмите чтобы включить)";
+            }
+        }
+
+        function toggleFinalStage() {
+            if (!isAdmin) return;
+            state.showFinalStage = !state.showFinalStage;
+            saveState();
+            renderFinal();
+            updateFinalToggleButton();
+        }
+
+        function renderHeader() {
+            var h = state.header || defaultHeaderHtml;
+            var el = document.getElementById('hdr-content');
+            if (el) {
+                if (document.activeElement !== el) {
+                    if (typeof h === 'object') {
+                        el.innerHTML = `<div style="font-size:18px; font-weight:600;">${h.sub || ''}</div>` +
+                                       `<div style="font-size:22px; font-weight:800;">${h.main || ''}</div>` +
+                                       `<div style="font-size:16px; font-weight:600;">${h.date || ''}</div>` +
+                                       `<div style="font-size:16px; font-weight:600;">${h.place || ''}</div>` +
+                                       `<div style="font-size:19px; font-weight:700; margin-top:6px;">${h.stage || ''}</div>`;
+                    } else {
+                        el.innerHTML = h;
+                    }
+                }
+                el.contentEditable = isAdmin ? "true" : "false";
+            }
+        }
+
+        function updateHeaderInfo() {
+            var el = document.getElementById('hdr-content');
+            if (el) {
+                state.header = el.innerHTML;
+                saveState();
+            }
+        }
+
+        function toggleTV(e) {
+            if (e) e.stopPropagation();
+            document.body.classList.remove('led-mode');
+            document.body.classList.toggle('tv-mode');
+        }
+
+        function toggleLED(e) {
+            if (e) e.stopPropagation();
+            document.body.classList.remove('tv-mode');
+            document.body.classList.toggle('led-mode');
+        }
+
+        document.addEventListener('keydown', function(e) {
+            var keyCode = e.keyCode || e.which;
+            if (keyCode === 27 || keyCode === 10009 || keyCode === 461 || e.key === 'Escape' || e.key === 'GoBack') {
+                document.body.classList.remove('tv-mode');
+                document.body.classList.remove('led-mode');
+            }
+        });
+
+        function syncTimer() {
+            if (state.timerRunning) {
+                if (!timerInterval) {
+                    timerInterval = setInterval(function() {
+                        if (state.timerSeconds > 0) {
+                            state.timerSeconds--;
+                            renderTimer();
+                        } else {
+                            state.timerRunning = false;
+                            clearInterval(timerInterval);
+                            timerInterval = null;
+                            autoSaveMatchResult();
+                        }
+                    }, 1000);
+                }
+            } else {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+            }
+            renderTimer();
+        }
+
+        function renderTimer() {
+            var sec = state.timerSeconds || 0;
+            var m = Math.floor(sec / 60);
+            var s = sec % 60;
+            
+            var inpM = document.getElementById('timer-m');
+            var inpS = document.getElementById('timer-s');
+
+            if (inpM && inpS) {
+                inpM.value = (m < 10 ? "0" + m : m);
+                inpS.value = (s < 10 ? "0" + s : s);
+                inpM.disabled = !isAdmin || state.timerRunning;
+                inpS.disabled = !isAdmin || state.timerRunning;
+            }
+        }
+
+        function onTimerInputChange() {
+            var m = parseInt(document.getElementById('timer-m').value, 10) || 0;
+            var s = parseInt(document.getElementById('timer-s').value, 10) || 0;
+            state.timerSeconds = (m * 60) + s;
+            saveState();
+        }
+
+        function toggleTimer() {
+            if (!isAdmin) return;
+            state.timerRunning = !state.timerRunning;
+            saveState();
+        }
+
+        function resetTimer() {
+            if (!isAdmin) return;
+            state.timerRunning = false;
+            state.timerSeconds = 0;
+            saveState();
+        }
+
+        function autoSaveMatchResult() {
+            if (!isAdmin) return;
+
+            var t1 = state.ledMatch.t1;
+            var t2 = state.ledMatch.t2;
+            var s1 = state.ledMatch.s1;
+            var s2 = state.ledMatch.s2;
+
+            if (!t1 || !t2 || t1 === t2) {
+                saveState();
+                return;
+            }
+
+            if (state.groups) {
+                state.groups.forEach(function(group, gIdx) {
+                    var t1Idx = group.teams.findIndex(function(tm) { return formatTeamName(tm) === t1; });
+                    var t2Idx = group.teams.findIndex(function(tm) { return formatTeamName(tm) === t2; });
+
+                    if (t1Idx !== -1 && t2Idx !== -1) {
+                        setScoreSilent(gIdx, t1Idx, t2Idx, 'h', s1);
+                        setScoreSilent(gIdx, t1Idx, t2Idx, 'a', s2);
+                    }
+                });
+            }
+
+            if (state.finalStage && state.showFinalStage) {
+                state.finalStage.forEach(function(m, mIdx) {
+                    if ((m.t1 === t1 && m.t2 === t2)) {
+                        m.h = s1;
+                        m.a = s2;
+                    } else if ((m.t1 === t2 && m.t2 === t1)) {
+                        m.h = s2;
+                        m.a = s1;
+                    }
+                });
+            }
+
+            if (state.ledTableData) {
+                var r1 = state.ledTableData.findIndex(function(row) { return row.name === t1; });
+                var r2 = state.ledTableData.findIndex(function(row) { return row.name === t2; });
+
+                if (r1 !== -1 && r2 !== -1) {
+                    state.ledTableData[r1]['c' + (r2 + 1)] = s1 + ":" + s2;
+                    state.ledTableData[r2]['c' + (r1 + 1)] = s2 + ":" + s1;
+                }
+            }
+
+            saveState();
+        }
+
+        function getAllTeamsList() {
+            var allTeams = [];
+            if (state.groups) {
+                state.groups.forEach(function(g) {
+                    if (g.teams) {
+                        g.teams.forEach(function(t) { 
+                            var formatted = formatTeamName(t);
+                            if (formatted && allTeams.indexOf(formatted) === -1) {
+                                allTeams.push(formatted);
+                            }
+                        });
+                    }
+                });
+            }
+            return allTeams;
+        }
+
+        function renderLedHeader() {
+            var sel1 = document.getElementById('led-t1-select');
+            var sel2 = document.getElementById('led-t2-select');
+            var s1 = document.getElementById('led-s1-inp');
+            var s2 = document.getElementById('led-s2-inp');
+
+            if (!state.ledMatch) state.ledMatch = { t1: "", t2: "", s1: "0", s2: "0" };
+
+            var teams = getAllTeamsList();
+
+            sel1.innerHTML = '<option value="">-- Команда 1 --</option>';
+            sel2.innerHTML = '<option value="">-- Команда 2 --</option>';
+
+            teams.forEach(function(tName) {
+                var opt1 = document.createElement('option');
+                opt1.value = tName;
+                opt1.innerText = tName;
+                if (tName === state.ledMatch.t1) opt1.selected = true;
+                sel1.appendChild(opt1);
+
+                var opt2 = document.createElement('option');
+                opt2.value = tName;
+                opt2.innerText = tName;
+                if (tName === state.ledMatch.t2) opt2.selected = true;
+                sel2.appendChild(opt2);
+            });
+
+            s1.value = state.ledMatch.s1 || "0";
+            s2.value = state.ledMatch.s2 || "0";
+
+            sel1.disabled = !isAdmin;
+            sel2.disabled = !isAdmin;
+            s1.disabled = !isAdmin;
+            s2.disabled = !isAdmin;
+        }
+
+        function updateLedHeader() {
+            state.ledMatch = {
+                t1: document.getElementById('led-t1-select').value,
+                t2: document.getElementById('led-t2-select').value,
+                s1: document.getElementById('led-s1-inp').value,
+                s2: document.getElementById('led-s2-inp').value
+            };
+            saveState();
+        }
+
+        function renderLedTable() {
+            var tbody = document.getElementById('led-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = "";
+
+            if (!state.ledTableData) {
+                state.ledTableData = JSON.parse(JSON.stringify(defaultState.ledTableData));
+            }
+
+            var allTeams = getAllTeamsList();
+
+            state.ledTableData.forEach(function(row, idx) {
+                var tr = document.createElement('tr');
+
+                var tdNum = document.createElement('td');
+                tdNum.innerText = idx + 1;
+                tr.appendChild(tdNum);
+
+                var tdTeam = document.createElement('td');
+                var selTeam = document.createElement('select');
+                selTeam.className = 'led-table-select';
+                selTeam.disabled = !isAdmin;
+
+                var optDefault = document.createElement('option');
+                optDefault.value = "";
+                optDefault.innerText = "-- Выберите команду --";
+                selTeam.appendChild(optDefault);
+
+                allTeams.forEach(function(tName) {
+                    var opt = document.createElement('option');
+                    opt.value = tName;
+                    opt.innerText = tName;
+                    if (tName === row.name) opt.selected = true;
+                    selTeam.appendChild(opt);
+                });
+
+                selTeam.onchange = function(e) {
+                    state.ledTableData[idx].name = e.target.value;
+                    saveState();
+                };
+                tdTeam.appendChild(selTeam);
+                tr.appendChild(tdTeam);
+
+                var createInputTd = function(key) {
+                    var td = document.createElement('td');
+                    var inp = document.createElement('input');
+                    inp.type = 'text';
+                    inp.className = 'led-cell-input';
+                    inp.value = row[key] || "";
+                    inp.disabled = !isAdmin;
+                    inp.onchange = function(e) {
+                        state.ledTableData[idx][key] = e.target.value;
+                        saveState();
+                    };
+                    td.appendChild(inp);
+                    return td;
+                };
+
+                ['c1', 'c2', 'c3', 'c4'].forEach(function(cKey, cIdx) {
+                    if (cIdx === idx) {
+                        var tdSelf = document.createElement('td');
+                        tdSelf.className = 'self-cell';
+                        tdSelf.innerText = '⚽';
+                        tr.appendChild(tdSelf);
+                    } else {
+                        tr.appendChild(createInputTd(cKey));
+                    }
+                });
+
+                tr.appendChild(createInputTd('goals'));
+                tr.appendChild(createInputTd('pts'));
+                tr.appendChild(createInputTd('place'));
+
+                tbody.appendChild(tr);
+            });
+        }
+
+        function resetPage() {
+            if (confirm("Вы уверены, что хотите сбросить данные к исходным?")) {
+                state = JSON.parse(JSON.stringify(defaultState));
+                saveState();
+            }
+        }
+
+        function addGroup() {
+            var letter = String.fromCharCode(1040 + (state.groups ? state.groups.length : 0));
+            if (!state.groups) state.groups = [];
+            state.groups.push({
+                name: "Группа «" + letter + "»",
+                teams: [
+                    { name: "Команда 1", city: "(Город)" },
+                    { name: "Команда 2", city: "(Город)" }
+                ],
+                scores: {}
+            });
+            saveState();
+        }
+
+        function deleteGroup(gIdx) {
+            if (confirm("Удалить эту группу?")) {
+                state.groups.splice(gIdx, 1);
+                saveState();
+            }
+        }
+
+        function addTeam(gIdx) {
+            state.groups[gIdx].teams.push({ name: "Команда " + (state.groups[gIdx].teams.length + 1), city: "" });
+            saveState();
+        }
+
+        function deleteTeam(gIdx, tIdx) {
+            if (state.groups[gIdx].teams.length <= 2) {
+                alert("В группе должно быть минимум 2 команды!");
+                return;
+            }
+            state.groups[gIdx].teams.splice(tIdx, 1);
+            state.groups[gIdx].scores = {}; 
+            saveState();
+        }
+
+        function addFinalMatch() {
+            if (!state.finalStage) state.finalStage = [];
+            state.finalStage.push({ stage: "Матч", t1: "", t2: "", h: "", a: "" });
+            saveState();
+        }
+
+        function deleteFinalMatch(mIdx) {
+            state.finalStage.splice(mIdx, 1);
+            saveState();
+        }
+
+        function setScore(gIdx, r, c, side, val) {
+            setScoreSilent(gIdx, r, c, side, val);
+            saveState();
+        }
+
+        function setScoreSilent(gIdx, r, c, side, val) {
+            var k1 = r + "_" + c;
+            var k2 = c + "_" + r;
+            if (!state.groups[gIdx].scores) state.groups[gIdx].scores = {};
+            if (!state.groups[gIdx].scores[k1]) state.groups[gIdx].scores[k1] = { h: "", a: "" };
+            if (!state.groups[gIdx].scores[k2]) state.groups[gIdx].scores[k2] = { h: "", a: "" };
+
+            if (side === 'h') {
+                state.groups[gIdx].scores[k1].h = val;
+                state.groups[gIdx].scores[k2].a = val;
+            } else {
+                state.groups[gIdx].scores[k1].a = val;
+                state.groups[gIdx].scores[k2].h = val;
+            }
+        }
+
+        function createCell(tag, text, className) {
+            var el = document.createElement(tag);
+            el.innerText = text;
+            if (className) el.className = className;
+            return el;
+        }
+
+        function createTeamSelect(teams, selectedVal) {
+            var sel = document.createElement('select');
+            sel.className = 'team-select';
+            
+            var optDefault = document.createElement('option');
+            optDefault.value = "";
+            sel.appendChild(optDefault);
+
+            teams.forEach(function(t) {
+                var formatted = formatTeamName(t);
+                var opt = document.createElement('option');
+                opt.value = formatted;
+                opt.innerText = formatted;
+                if (formatted === selectedVal) opt.selected = true;
+                sel.appendChild(opt);
+            });
+            return sel;
+        }
+
+        function renderFinal() {
+            var wrapper = document.getElementById('final-stage-wrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = "";
+
+            // Если выключено в настройках, скрываем блок полностью
+            if (state.showFinalStage === false) {
+                return;
+            }
+
+            if (!state.finalStage) state.finalStage = [];
+            var finalArr = Array.isArray(state.finalStage) ? state.finalStage : Object.values(state.finalStage);
+
+            var allTeams = [];
+            if (state.groups) {
+                var groupsArr = Array.isArray(state.groups) ? state.groups : Object.values(state.groups);
+                groupsArr.forEach(function(g) {
+                    if (g.teams) {
+                        var teamsArr = Array.isArray(g.teams) ? g.teams : Object.values(g.teams);
+                        teamsArr.forEach(function(t) { allTeams.push(t); });
+                    }
+                });
+            }
+
+            var card = document.createElement('div');
+            card.className = "final-stage-card";
+            
+            var gHeader = document.createElement('div');
+            gHeader.className = 'final-stage-header';
+
+            var titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.className = 'final-stage-title-input';
+            titleInput.value = state.finalStageTitle || "Финальный этап";
+            titleInput.disabled = !isAdmin;
+            titleInput.onchange = function(e) {
+                state.finalStageTitle = e.target.value;
+                saveState();
+            };
+            gHeader.appendChild(titleInput);
+
+            var adminBtns = document.createElement('div');
+            adminBtns.className = 'admin-only';
+            adminBtns.style.gap = '8px';
+
+            var addMatchBtn = document.createElement('button');
+            addMatchBtn.className = 'btn-add';
+            addMatchBtn.innerHTML = '+ Строка';
+            addMatchBtn.onclick = function() { addFinalMatch(); };
+            adminBtns.appendChild(addMatchBtn);
+
+            gHeader.appendChild(adminBtns);
+            card.appendChild(gHeader);
+
+            var container = document.createElement('div');
+            container.className = "final-stage-container";
+
+            finalArr.forEach(function(m, mIdx) {
+                var row = document.createElement('div');
+                row.className = 'final-match-row';
+
+                var labelInput = document.createElement('input');
+                labelInput.type = 'text';
+                labelInput.className = 'match-label-input';
+                labelInput.value = m.stage || "Матч";
+                labelInput.disabled = !isAdmin;
+                labelInput.onchange = function(e) {
+                    state.finalStage[mIdx].stage = e.target.value;
+                    saveState();
+                };
+                row.appendChild(labelInput);
+
+                var sel1 = createTeamSelect(allTeams, m.t1);
+                sel1.disabled = !isAdmin;
+                sel1.onchange = function(e) { 
+                    state.finalStage[mIdx].t1 = e.target.value; 
+                    saveState(); 
+                };
+                row.appendChild(sel1);
+
+                var sr = document.createElement('div');
+                sr.className = 'score-row';
+
+                var inpH = document.createElement('input');
+                inpH.type = 'text';
+                inpH.className = 'score-input';
+                inpH.value = m.h || "";
+                inpH.disabled = !isAdmin;
+                inpH.onchange = function(e) { 
+                    state.finalStage[mIdx].h = e.target.value; 
+                    saveState(); 
+                };
+
+                var sep = document.createElement('span');
+                sep.innerText = ':';
+                sep.style.fontWeight = 'bold';
+
+                var inpA = document.createElement('input');
+                inpA.type = 'text';
+                inpA.className = 'score-input';
+                inpA.value = m.a || "";
+                inpA.disabled = !isAdmin;
+                inpA.onchange = function(e) { 
+                    state.finalStage[mIdx].a = e.target.value; 
+                    saveState(); 
+                };
+
+                sr.appendChild(inpH);
+                sr.appendChild(sep);
+                sr.appendChild(inpA);
+                row.appendChild(sr);
+
+                var sel2 = createTeamSelect(allTeams, m.t2);
+                sel2.disabled = !isAdmin;
+                sel2.onchange = function(e) { 
+                    state.finalStage[mIdx].t2 = e.target.value; 
+                    saveState(); 
+                };
+                row.appendChild(sel2);
+
+                var delBtn = document.createElement('button');
+                delBtn.className = 'btn-mini admin-only';
+                delBtn.innerHTML = '✖';
+                delBtn.onclick = function() { deleteFinalMatch(mIdx); };
+                row.appendChild(delBtn);
+
+                container.appendChild(row);
+            });
+
+            card.appendChild(container);
+            wrapper.appendChild(card);
+        }
+
+        function render() {
+            var wrapper = document.getElementById('groups-wrapper');
+            if (!wrapper) return;
+            wrapper.innerHTML = "";
+
+            if (!state.groups) state.groups = [];
+            var groupsArr = Array.isArray(state.groups) ? state.groups : Object.values(state.groups);
+
+            groupsArr.forEach(function(group, gIdx) {
+                if (!group.scores) group.scores = {};
+                if (!group.teams) group.teams = [];
+                var teamsArr = Array.isArray(group.teams) ? group.teams : Object.values(group.teams);
+
+                var card = document.createElement('div');
+                card.className = "group-card";
+
+                var gHeader = document.createElement('div');
+                gHeader.className = 'group-header';
+
+                var gTitle = document.createElement('input');
+                gTitle.type = 'text';
+                gTitle.className = 'group-title';
+                gTitle.value = group.name;
+                gTitle.disabled = !isAdmin;
+                gTitle.onchange = function(e) { group.name = e.target.value; saveState(); };
+                gHeader.appendChild(gTitle);
+
+                var adminBtns = document.createElement('div');
+                adminBtns.className = 'admin-only';
+                adminBtns.style.gap = '8px';
+
+                var addTeamBtn = document.createElement('button');
+                addTeamBtn.className = 'btn-add';
+                addTeamBtn.innerHTML = '+ Команда';
+                addTeamBtn.onclick = function() { addTeam(gIdx); };
+
+                var delGroupBtn = document.createElement('button');
+                delGroupBtn.className = 'btn-mini';
+                delGroupBtn.style.fontSize = '18px';
+                delGroupBtn.innerHTML = '🗑';
+                delGroupBtn.onclick = function() { deleteGroup(gIdx); };
+
+                adminBtns.appendChild(addTeamBtn);
+                adminBtns.appendChild(delGroupBtn);
+                gHeader.appendChild(adminBtns);
+                card.appendChild(gHeader);
+
+                var tableResp = document.createElement('div');
+                tableResp.className = 'table-responsive';
+                var table = document.createElement('table');
+
+                var colGroup = document.createElement('colgroup');
+                
+                var colNum = document.createElement('col');
+                colNum.style.width = "3%";
+                colGroup.appendChild(colNum);
+
+                var colTeam = document.createElement('col');
+                colTeam.style.width = "23%";
+                colGroup.appendChild(colTeam);
+
+                teamsArr.forEach(function() {
+                    var col = document.createElement('col');
+                    col.style.width = "12.5%";
+                    colGroup.appendChild(col);
+                });
+
+                ['В', 'Н', 'П', 'Мячи', 'О', 'М'].forEach(function(_, idx) {
+                    var col = document.createElement('col');
+                    col.style.width = (idx === 3) ? "8%" : "4%";
+                    colGroup.appendChild(col);
+                });
+
+                table.appendChild(colGroup);
+
+                var thead = document.createElement('thead');
+                var trHead = document.createElement('tr');
+                trHead.appendChild(createCell('th', '№'));
+                trHead.appendChild(createCell('th', 'Команды', 'team-cell'));
+
+                teamsArr.forEach(function(_, i) {
+                    trHead.appendChild(createCell('th', i + 1));
+                });
+
+                ['В', 'Н', 'П', 'Мячи', 'О', 'М'].forEach(function(h, idx) {
+                    var th = createCell('th', h);
+                    if (idx === 4) th.className = 'points-col';
+                    trHead.appendChild(th);
+                });
+
+                thead.appendChild(trHead);
+                table.appendChild(thead);
+
+                var tbody = document.createElement('tbody');
+
+                var teamStats = teamsArr.map(function(tObj, r) {
+                    var parsed = parseTeam(tObj);
+                    var w = 0, d = 0, l = 0, gf = 0, ga = 0, pts = 0;
+                    teamsArr.forEach(function(_, c) {
+                        if (r !== c) {
+                            var sc = group.scores[r + "_" + c] || { h: "", a: "" };
+                            if (sc.h !== "" && sc.a !== "" && !isNaN(sc.h) && !isNaN(sc.a)) {
+                                var hVal = parseInt(sc.h, 10);
+                                var aVal = parseInt(sc.a, 10);
+                                gf += hVal; ga += aVal;
+                                if (hVal > aVal) { w++; pts += 3; }
+                                else if (hVal === aVal) { d++; pts += 1; }
+                                else { l++; }
+                            }
+                        }
+                    });
+                    return {
+                        origIndex: r,
+                        teamObj: parsed,
+                        wins: w,
+                        draws: d,
+                        losses: l,
+                        gf: gf,
+                        ga: ga,
+                        diff: gf - ga,
+                        pts: pts
+                    };
+                });
+
+                var sortedForRank = teamStats.slice().sort(function(a, b) {
+                    if (b.pts !== a.pts) return b.pts - a.pts;
+                    if (b.diff !== a.diff) return b.diff - a.diff;
+                    return b.gf - a.gf;
+                });
+
+                teamStats.forEach(function(st) {
+                    st.rank = sortedForRank.findIndex(function(item) { return item.origIndex === st.origIndex; }) + 1;
+                });
+
+                teamStats.forEach(function(st, idx) {
+                    var tr = document.createElement('tr');
+                    tr.appendChild(createCell('td', idx + 1));
+
+                    var tdTeam = document.createElement('td');
+                    tdTeam.className = 'team-cell';
+                    var wrap = document.createElement('div');
+                    wrap.className = 'team-wrap';
+
+                    var inputsContainer = document.createElement('div');
+                    inputsContainer.className = 'team-inputs-container';
+
+                    var nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.className = 'team-name-input';
+                    nameInput.value = st.teamObj.name;
+                    nameInput.disabled = !isAdmin;
+                    nameInput.onchange = function(e) {
+                        group.teams[st.origIndex].name = e.target.value;
+                        saveState();
+                    };
+
+                    var cityInput = document.createElement('input');
+                    cityInput.type = 'text';
+                    cityInput.className = 'team-city-input';
+                    cityInput.value = st.teamObj.city;
+                    cityInput.disabled = !isAdmin;
+                    cityInput.onchange = function(e) {
+                        group.teams[st.origIndex].city = e.target.value;
+                        saveState();
+                    };
+
+                    inputsContainer.appendChild(nameInput);
+                    inputsContainer.appendChild(cityInput);
+                    wrap.appendChild(inputsContainer);
+
+                    var delBtn = document.createElement('button');
+                    delBtn.className = 'btn-mini admin-only';
+                    delBtn.innerHTML = '✖';
+                    delBtn.onclick = function() { deleteTeam(gIdx, st.origIndex); };
+                    wrap.appendChild(delBtn);
+
+                    tdTeam.appendChild(wrap);
+                    tr.appendChild(tdTeam);
+
+                    var r = st.origIndex;
+                    teamsArr.forEach(function(_, c) {
+                        var td = document.createElement('td');
+                        if (r === c) {
+                            td.className = 'self-cell';
+                            td.innerHTML = '⚽';
+                        } else {
+                            var sc = group.scores[r + "_" + c] || { h: "", a: "" };
+                            var matchesDiv = document.createElement('div');
+                            matchesDiv.className = 'matches-container';
+
+                            var sr = document.createElement('div');
+                            sr.className = 'score-row';
+
+                            var inpH = document.createElement('input');
+                            inpH.type = 'text';
+                            inpH.className = 'score-input';
+                            inpH.value = sc.h;
+                            inpH.disabled = !isAdmin;
+                            inpH.onchange = function(e) { setScore(gIdx, r, c, 'h', e.target.value); };
+
+                            var sep = document.createElement('span');
+                            sep.innerText = ':';
+
+                            var inpA = document.createElement('input');
+                            inpA.type = 'text';
+                            inpA.className = 'score-input';
+                            inpA.value = sc.a;
+                            inpA.disabled = !isAdmin;
+                            inpA.onchange = function(e) { setScore(gIdx, r, c, 'a', e.target.value); };
+
+                            sr.appendChild(inpH);
+                            sr.appendChild(sep);
+                            sr.appendChild(inpA);
+                            matchesDiv.appendChild(sr);
+                            td.appendChild(matchesDiv);
+                        }
+                        tr.appendChild(td);
+                    });
+
+                    tr.appendChild(createCell('td', st.wins));
+                    tr.appendChild(createCell('td', st.draws));
+                    tr.appendChild(createCell('td', st.losses));
+                    tr.appendChild(createCell('td', st.gf + ':' + st.ga));
+                    tr.appendChild(createCell('td', st.pts, 'points-col'));
+                    tr.appendChild(createCell('td', st.rank));
+
+                    tbody.appendChild(tr);
+                });
+
+                table.appendChild(tbody);
+                tableResp.appendChild(table);
+                card.appendChild(tableResp);
+                wrapper.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
